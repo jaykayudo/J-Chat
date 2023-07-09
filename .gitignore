@@ -1,5 +1,4 @@
-env
-**/*.pyc
-**/__pycache__
-chat/__pycache__
-chatapp/__pycache__
+*.log
+*.pot
+*.pyc
+__pycache__
