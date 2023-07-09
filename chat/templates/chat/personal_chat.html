@@ -1,0 +1,194 @@
+{% load staticfiles %}
+{% load template_tag %}
+<!DOCTYPE html>
+
+<html class=''>
+<head>
+    <link href="//maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css" rel="stylesheet" id="bootstrap-css">
+<script src="//maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js"></script>
+<script src="//cdnjs.cloudflare.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+<!------ Include the above in your HEAD tag ---------->
+
+<link href="//netdna.bootstrapcdn.com/bootstrap/3.0.0/css/bootstrap.min.css" rel="stylesheet" id="bootstrap-css">
+<script src="//netdna.bootstrapcdn.com/bootstrap/3.0.0/js/bootstrap.min.js"></script>
+<script src="//code.jquery.com/jquery-1.11.1.min.js"></script>
+<!------ Include the above in your HEAD tag ---------->
+<link href='https://fonts.googleapis.com/css?family=Source+Sans+Pro:400,600,700,300' rel='stylesheet' type='text/css'>
+
+<script src="https://use.typekit.net/hoy3lrg.js"></script>
+<script>try{Typekit.load({ async: true });}catch(e){}</script>
+<link rel='stylesheet prefetch' href='https://cdnjs.cloudflare.com/ajax/libs/meyer-reset/2.0/reset.min.css'><link rel='stylesheet prefetch' href='https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.6.2/css/font-awesome.min.css'>
+<link rel="stylesheet" href="{% static 'css/style.css' %}">
+<style class="cp-pen-styles">
+</style>
+</head>
+<body>
+
+
+<div id="frame">
+	<div id="sidepanel">
+		<div id="profile">
+			<div class="wrap">
+                <div>
+                    
+                </div>
+				<img id="profile-img" src="http://emilcarlsson.se/assets/mikeross.png" class="online" alt="" />
+				<p>{{request.user.username}}</p>
+				<i class="fa fa-chevron-down expand-button" aria-hidden="true"></i>
+				<div id="expanded">
+                    <a href="#" class="site-btn">View Profile</a>
+					<a href="#" class="site-btn">Logout</a>
+				</div>
+			</div>
+		</div>
+		<div id="search">
+			<label for=""><i class="fa fa-search" aria-hidden="true"></i></label>
+			<input type="text" placeholder="Search contacts..." />
+		</div>
+		<div id="contacts">
+			<ul>
+                {% for x in users %}
+                {% if x != request.user %}
+				<li class="contact" onclick="PersonalChat('{{x.username}}',this)">
+					<div class="wrap" >
+						<span class="contact-status online"></span>
+						<span class="letter-holder">{{x.username|short}}</span>
+						<div class="meta">
+							<p class="name" style="text-transform: capitalize;">{{x.username}}</p>
+							<p class="preview">You just got LITT up, Mike.</p>
+						</div>
+					</div>
+				</li>
+                {% endif %}
+                {% endfor %}
+			</ul>
+		</div>
+	</div>
+    <div class="placeholder-content">
+        <h2>Click a Chat to Start Messaging</h2>
+    </div>
+	<div class="content hidden">
+		<div class="contact-profile">
+			<img src="http://emilcarlsson.se/assets/harveyspecter.png" alt="" />
+			<p id="content-chat-name">{{room_name}}</p>
+		</div>
+		<div class="messages">
+			<ul>
+
+			</ul>
+		</div>
+		<div class="message-input">
+			<div class="wrap">
+			<input type="text" id="chat-message-input" placeholder="Write your message..." />
+			<i class="fa fa-paperclip attachment" aria-hidden="true"></i>
+			<button id="chat-message-submit" class="submit"><i class="fa fa-paper-plane" aria-hidden="true"></i></button>
+			</div>
+		</div>
+	</div>
+</div>
+<script src='https://code.jquery.com/jquery-2.2.4.min.js'></script>
+<script >$(".messages").animate({ scrollTop: $(document).height() }, "fast");
+
+$(".expand-button").click(function() {
+  $("#profile").toggleClass("expanded");
+	$("#contacts").toggleClass("expanded");
+});
+
+
+function newMessages(data){
+	$('.messages ul').html('');
+	for(var content of data){
+		if(content.author == username)
+	    $('<li class="sent"><img src="http://emilcarlsson.se/assets/mikeross.png" alt="" /><p>' + content.message + '</p></li>').appendTo($('.messages ul'));
+	else
+        $('<li class="replies"><img src="http://emilcarlsson.se/assets/mikeross.png" alt="" /><p>' + content.message + '</p></li>').appendTo($('.messages ul'));
+		
+	}
+	$('.contact.active .preview').html(`<span>${data[data.length -1].author == username ? "You: " : data[data.length -1].author + ': ' } </span>` + data[data.length -1].message);
+}
+function newMessage(data) {
+	message = data.message;
+	if($.trim(message) == '') {
+		return false;
+	}
+    // console.log(data.author)
+    if(data.author == username)
+	    $('<li class="sent"><img src="http://emilcarlsson.se/assets/mikeross.png" alt="" /><p>' + message + '</p></li>').appendTo($('.messages ul'));
+	else
+        $('<li class="replies"><img src="http://emilcarlsson.se/assets/mikeross.png" alt="" /><p>' + message + '</p></li>').appendTo($('.messages ul'));
+	
+    $('.contact.active .preview').html(`<span>${data.author == username ? "You: " : data.author + ': ' } </span>` + message);
+	
+    $(".messages").animate({ scrollTop: $(document).height() }, "fast");
+};
+function loadImg(elem,username){
+    const neededChars = username.slice(0,2);
+    elem.innerHTML = neededChars;
+}
+
+</script>
+<script src="{% static 'js/reconnecting-websocket.js' %}"></script>
+{{ room_name|json_script:"room-name" }}
+<script>
+    let chatSocket = null;
+    const username = "{{request.user.username}}"
+	function PersonalChat(receiver,e){
+        
+        const contentContainer = document.querySelector('.content')
+        const placeholderContainer = document.querySelector('.placeholder-content')
+        const contenChatName = document.getElementById('content-chat-name')
+        
+		const path = 'ws://'+window.location.host+'/ws/chat/'+username+'-'+receiver+'/'
+        
+        chatSocket = new ReconnectingWebSocket(path)
+        chatSocket.onopen = function(){
+            $('.contact').removeClass('active')
+            e.classList.add('active')
+            contentContainer.classList.remove('hidden')
+            placeholderContainer.classList.add('hidden')
+            contenChatName.textContent = receiver;
+            document.querySelector('#chat-message-input').focus();
+            chatSocket.send(
+            JSON.stringify({
+                'command':'fetch_messages'
+            })
+            
+        )
+        chatSocket.onclose = function(e){
+            console.log("Closed at error",e.code)
+        }
+        chatSocket.onmessage = function(e){
+            data = JSON.parse(e.data)
+            if(Array.isArray(data)){
+				newMessages(data)
+            }else{
+                newMessage(data);
+            }
+        }
+        }
+       
+	}
+        
+        document.querySelector('#chat-message-input').onkeyup = function(e) {
+            if (e.keyCode === 13) {  // enter, return
+                document.querySelector('#chat-message-submit').click();
+            }
+        };
+        document.querySelector('#chat-message-submit').onclick = function(e) {
+            const messageInputDom = document.querySelector('#chat-message-input');
+            const message = messageInputDom.value;
+            if($.trim(message) == '') {
+		        return false;
+	            }
+            console.log(message)
+            // newMessage(message)
+
+            chatSocket.send(JSON.stringify({
+                'command':'new_message',
+                'from':username,
+                'message': message
+            }));
+            messageInputDom.value = '';
+        };
+    </script>
+</body></html>
